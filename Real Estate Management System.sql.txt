@@ -1,0 +1,222 @@
+create database real_estate_management;
+
+use real_estate_management;
+
+--  1. Create Tables
+
+CREATE TABLE Agents (
+    AgentID INT PRIMARY KEY,
+    FirstName VARCHAR(50),
+    LastName VARCHAR(50),
+    Email VARCHAR(100),
+    Phone VARCHAR(20),
+    HireDate DATE,
+    CommissionRate DECIMAL(5,2)
+);
+
+CREATE TABLE Clients (
+    ClientID INT PRIMARY KEY,
+    FirstName VARCHAR(50),
+    LastName VARCHAR(50),
+    Email VARCHAR(100),
+    Phone VARCHAR(20),
+    ClientType VARCHAR(10) -- 'Buyer' or 'Seller'
+);
+
+CREATE TABLE Properties (
+    PropertyID INT PRIMARY KEY,
+    Address VARCHAR(100),
+    City VARCHAR(50),
+    State VARCHAR(20),
+    ZipCode VARCHAR(10),
+    Price DECIMAL(12,2),
+    Status VARCHAR(20),
+    AgentID INT,
+    ListingDate DATE,
+    PropertyType VARCHAR(50),
+    Bedrooms INT,
+    Bathrooms INT,
+    SquareFeet INT,
+    FOREIGN KEY (AgentID) REFERENCES Agents(AgentID)
+);
+
+
+CREATE TABLE Transactions (
+    TransactionID INT PRIMARY KEY,
+    PropertyID INT,
+    BuyerID INT,
+    SellerID INT,
+    AgentID INT,
+    SalePrice DECIMAL(12,2),
+    SaleDate DATE,
+    CommissionEarned DECIMAL(12,2),
+    FOREIGN KEY (PropertyID) REFERENCES Properties(PropertyID),
+    FOREIGN KEY (BuyerID) REFERENCES Clients(ClientID),
+    FOREIGN KEY (SellerID) REFERENCES Clients(ClientID),
+    FOREIGN KEY (AgentID) REFERENCES Agents(AgentID)
+);
+
+
+-- 2. Insert Data
+-- -- Agents
+INSERT INTO Agents VALUES
+(101, 'Sarah', 'Johnson', 'sarah@agency.com', '9865934249', '2020-06-01', 0.05),
+(102, 'Michael', 'Smith', 'michael@agency.com', '9865934248', '2022-02-20', 0.04);
+
+select * from Agents;
+
+-- Clients
+INSERT INTO Clients VALUES
+(201, 'Alice', 'Brown', 'alice@mail.com', '9632584592', 'Seller'),
+(202, 'Bob', 'Miller', 'bob@mail.com', '5968326598', 'Buyer'),
+(203, 'Tom', 'Clark', 'tom@mail.com', '5698324589', 'Seller'),
+(204, 'Nina', 'Gray', 'nina@mail.com', '8695324575', 'Buyer');
+
+-- Properties
+INSERT INTO Properties VALUES
+(1, '123 Main St', 'Miami', 'FL', '33101', 500000.00, 'Sold', 101, '2024-01-10', 'House', 3, 2, 1800),
+(2, '456 Oak Ave', 'Orlando', 'FL', '32801', 350000.00, 'Available', 102, '2024-03-12', 'Apartment', 2, 1, 900),
+(3, '789 Pine Rd', 'Tampa', 'FL', '33601', 450000.00, 'Sold', 101, '2024-01-20', 'House', 4, 3, 2200),
+(4, '321 Elm St', 'Miami', 'FL', '33101', 600000.00, 'Available', 102, '2024-04-01', 'Commercial', 0, 2, 3500);
+
+-- Transactions
+INSERT INTO Transactions VALUES
+(301, 1, 202, 201, 101, 490000.00, '2024-04-05', 24500.00),
+(302, 3, 204, 203, 101, 440000.00, '2024-04-10', 22000.00);
+
+select * from Transactions;
+
+-- 1. List all clients who have participated in any transaction (buyer or seller)
+
+SELECT DISTINCT C.ClientID, C.FirstName, C.LastName, C.ClientType
+FROM Clients C
+JOIN Transactions T 
+ON C.ClientID = T.BuyerID OR C.ClientID = T.SellerID;
+
+--  2. Show all properties that have not yet been sold
+SELECT *
+FROM Properties
+WHERE Status <> 'Sold';
+
+--  3. Show total commission earned by each agent
+
+SELECT 
+    A.AgentID,
+    CONCAT(A.FirstName, ' ', A.LastName) AS AgentName,
+    SUM(T.CommissionEarned) AS TotalCommission
+FROM Agents A
+JOIN Transactions T ON A.AgentID = T.AgentID
+GROUP BY A.AgentID;
+
+-- 4. Count how many properties are available per city
+
+SELECT 
+    City,
+    COUNT(*) AS AvailableProperties
+FROM Properties
+WHERE Status = 'Available'
+GROUP BY City;
+
+-- 5. Show top 3 most expensive properties
+
+SELECT *
+FROM Properties
+ORDER BY Price DESC
+LIMIT 3;
+
+-- 6. Get average sale price per city
+
+SELECT 
+    P.City,
+    AVG(T.SalePrice) AS AvgSalePrice
+FROM Transactions T
+JOIN Properties P ON T.PropertyID = P.PropertyID
+GROUP BY P.City;
+
+ -- 7. Get list of agents who have not closed any transaction
+ 
+ SELECT 
+    A.AgentID,
+    CONCAT(A.FirstName, ' ', A.LastName) AS AgentName
+FROM Agents A
+LEFT JOIN Transactions T ON A.AgentID = T.AgentID
+WHERE T.TransactionID IS NULL;
+
+-- 8. Show list of properties with agent and current status (Available/Sold)
+
+SELECT 
+    P.PropertyID,
+    P.Address,
+    P.Status,
+    CONCAT(A.FirstName, ' ', A.LastName) AS AgentName
+FROM Properties P
+JOIN Agents A ON P.AgentID = A.AgentID;
+
+--  9. List all buyers who have purchased a house with more than 3 bedrooms
+
+SELECT DISTINCT 
+    C.ClientID,
+    C.FirstName,
+    C.LastName,
+    C.Email
+FROM Clients C
+JOIN Transactions T ON C.ClientID = T.BuyerID
+JOIN Properties P ON T.PropertyID = P.PropertyID
+WHERE P.Bedrooms > 3;
+
+-- 10. JOIN Query
+-- Show property listings with agent names
+SELECT 
+    P.Address, 
+    P.City, 
+    P.Price, 
+    CONCAT(A.FirstName, ' ', A.LastName) AS AgentName
+FROM Properties P
+JOIN Agents A ON P.AgentID = A.AgentID;
+
+-- 11. View
+-- View of all sold properties with agent info
+CREATE VIEW SoldPropertiesView AS
+SELECT 
+    T.TransactionID,
+    P.Address,
+    T.SalePrice,
+    T.SaleDate,
+    CONCAT(A.FirstName, ' ', A.LastName) AS AgentName,
+    T.CommissionEarned
+FROM 
+    Transactions T
+JOIN Properties P ON T.PropertyID = P.PropertyID
+JOIN Agents A ON T.AgentID = A.AgentID
+WHERE P.Status = 'Sold';
+
+SELECT * FROM SoldPropertiesView;
+
+-- 12 Subquery
+
+-- Get the transaction with the highest sale price
+SELECT *
+FROM Transactions
+WHERE SalePrice = (
+    SELECT MAX(SalePrice) FROM Transactions
+);
+
+-- 13 Stored Procedure
+
+DELIMITER //
+
+CREATE PROCEDURE CountPropertiesByAgent(IN agent_id INT)
+BEGIN
+    SELECT 
+        COUNT(*) AS PropertyCount,
+        CONCAT(FirstName, ' ', LastName) AS AgentName
+    FROM Properties P
+    JOIN Agents A ON P.AgentID = A.AgentID
+    WHERE P.AgentID = agent_id
+    GROUP BY A.AgentID;
+END //
+
+DELIMITER ;
+
+CALL CountPropertiesByAgent(101);
+
